@@ -1,0 +1,165 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum UserRole {
+  STUDENT
+  PROFESSOR
+  ADMIN
+}
+
+enum AIMode {
+  BRAINSTORMING
+  EXAM
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  GRADED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  role          UserRole  @default(STUDENT)
+  universityId  String?
+  department    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  coursesToTeach Course[]      @relation("ProfessorCourses")
+  enrollments    Enrollment[]
+  submissions    Submission[]
+  conversations  AIConversation[]
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  code        String
+  name        String
+  description String?
+  professorId String
+  professor   User     @relation("ProfessorCourses", fields: [professorId], references: [id])
+  aiMode      AIMode   @default(BRAINSTORMING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  assignments       Assignment[]
+  enrollments       Enrollment[]
+  knowledgeBase     KnowledgeDocument[]
+}
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  studentId String
+  courseId  String
+  student   User     @relation(fields: [studentId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id])
+  enrolledAt DateTime @default(now())
+
+  @@unique([studentId, courseId])
+}
+
+model Assignment {
+  id              String   @id @default(uuid())
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id])
+  title           String
+  description     String
+  dueDate         DateTime
+  aiMode          AIMode   @default(BRAINSTORMING)
+  codeConstraints Json?    // validation rules (e.g. line limits)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  submissions Submission[]
+}
+
+model Submission {
+  id            String           @id @default(uuid())
+  assignmentId  String
+  assignment    Assignment       @relation(fields: [assignmentId], references: [id])
+  studentId     String
+  student       User             @relation(fields: [studentId], references: [id])
+  content       String           // The code or essay content
+  status        SubmissionStatus @default(DRAFT)
+  grade         Float?
+  feedback      String?
+  submittedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // Process Verification Data
+  telemetryEvents TelemetryEvent[]
+  conversations   AIConversation[]
+  auditToken      AuditToken?
+  vivaQuestions   VivaQuestion[]
+}
+
+model TelemetryEvent {
+  id           String   @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  eventType    String   // 'keystroke', 'paste', 'idle', 'focus'
+  data         Json     // Event details (timestamp, duration, content_length)
+  timestamp    DateTime @default(now())
+}
+
+model AIConversation {
+  id           String   @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  studentId    String
+  student      User       @relation(fields: [studentId], references: [id])
+  messages     Json       // Array of chat messages
+  intents      String[]   // List of classified intents
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+
+
+// Renamed to avoid confusion with the function name
+model AuditToken {
+  id           String   @id @default(uuid())
+  submissionId String   @unique
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  token        String   // Cryptographic token
+  metrics      Json     // Calculated metrics (typing%, paste%, etc.)
+  generatedAt  DateTime @default(now())
+}
+
+model VivaQuestion {
+  id           String   @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  question     String
+  context      String?  // Why this question was generated
+  createdAt    DateTime @default(now())
+}
+
+model KnowledgeDocument {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+  filename  String
+  content   String
+  embedding Unsupported("vector(1536)")? // OpenAI embedding size
+  createdAt DateTime @default(now())
+}

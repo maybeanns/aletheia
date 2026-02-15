@@ -1,0 +1,16 @@
+import LoginForm from '@/components/auth/login-form';
+
+export default function LoginPage() {
+    return (
+        <main className="flex items-center justify-center md:h-screen">
+            <div className="relative mx-auto flex w-full max-w-[400px] flex-col space-y-2.5 p-4 md:-mt-32">
+                <div className="flex w-full items-center justify-center p-6 mb-2">
+                    <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-blue-600 dark:text-blue-500">
+                        Aletheia
+                    </h1>
+                </div>
+                <LoginForm />
+            </div>
+        </main>
+    );
+}

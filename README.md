@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aletheia
 
-## Getting Started
+> **The Socratic Firewall & Process Verification Platform**
+> 
+> *Transforming AI from a tool for academic dishonesty into infrastructure for genuine cognitive work.*
 
-First, run the development server:
+Aletheia is an enterprise-grade B2B SaaS platform designed for universities. Instead of banning AI, Aletheia integrates it as a Socratic tutor that guides students through problems without giving direct answers. It simultaneously acts as a "flight recorder" for the learning process, verifying that the student did the work themselves through forensic keystroke dynamics and audit trail generation.
 
+![Start Dashboard](https://github.com/user-attachments/assets/placeholder-image-url)
+
+## 🚀 Core Features
+
+### Module A: The Pedagogical Gateway ("Socratic Firewall")
+-   **Intent Classification**: Uses LLaMA-3 (via Groq) to instantly classify student prompts (e.g., "Direct Solution Seeking" vs. "Conceptual Question").
+-   **Prompt Interception**: Blocks direct code generation requests in exam settings.
+-   **Socratic Engine**: Instead of writing the essay/code, the AI asks guiding questions to help the student reach the answer themselves.
+-   **Mode Switching**: Configurable modes for "Brainstorming" (lenient) vs. "Exam" (strict).
+
+### Module B: The Flight Recorder (Process Verification)
+-   **Forensic Telemetry**: Tracks keystroke dynamics, typing cadence, and paste events in real-time.
+-   **Audit Tokens**: Generates cryptographically signed tokens upon submission that prove the "provenance" of the work.
+-   **Visual Replay**: Professors can replay the entire creation process to verify authenticity.
+-   **Integrity Dashboard**: Flags suspicious behavior (e.g., large rapid pastes, low edit time).
+
+### Module C: Faculty Dashboard
+-   **Assignment Management**: Configure AI strictness and code constraints.
+-   **Class Analytics**: View aggregated data on AI reliance and paste frequency.
+-   **Submission Review**: Deep-dive into individual student submissions with side-by-side code and telemetry analysis.
+
+## 🛠 Tech Stack
+
+-   **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Server Components)
+-   **Language**: TypeScript
+-   **Styling**: Tailwind CSS + Framer Motion
+-   **Database**: PostgreSQL + [pgvector](https://github.com/pgvector/pgvector) (for RAG features)
+-   **ORM**: Prisma
+-   **AI Orchestration**:
+    -   **Reasoning**: OpenAI GPT-4o / Anthropic Claude 3.5 Sonnet
+    -   **Fast Classification**: Groq (LLaMA-3-8b)
+-   **Editor**: Monaco Editor (VS Code web)
+-   **Infrastructure**: Docker, Redis (for caching/queues), GitHub Actions
+
+## ⚡ Getting Started
+
+### Prerequisites
+-   Node.js 18+
+-   Docker & Docker Compose
+-   PostgreSQL (or use the Docker container)
+
+### 1. Clone the repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/yourusername/aletheia.git
+cd aletheia
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment Variables
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+Fill in the required API keys in `.env`:
+-   `DATABASE_URL` (PostgreSQL)
+-   `GROQ_API_KEY`
+-   `OPENAI_API_KEY`
+-   `NEXTAUTH_SECRET`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Run with Docker (Recommended)
+This spins up the Application, PostgreSQL with pgvector, and Redis.
+```bash
+docker-compose -f docker/docker-compose.yml up --build
+```
+The app will be available at [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Run Locally (Development)
+If you prefer to run Node locally:
 
-## Learn More
+```bash
+# Install dependencies
+npm install
 
-To learn more about Next.js, take a look at the following resources:
+# Initialize Database
+npx prisma db push
+npx prisma db seed
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start server
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🧪 Testing
 
-## Deploy on Vercel
+To run the test suite:
+```bash
+npm test
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🚢 Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The project is configured for **Docker** deployment. 
+-   The `Dockerfile` uses a multi-stage build (standalone output) for optimized image size.
+-   A GitHub Actions workflow (`.github/workflows/ci.yml`) automatically lints and builds the project on push.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
