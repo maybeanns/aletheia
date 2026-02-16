@@ -1,4 +1,5 @@
 FROM node:20-slim AS base
+RUN apt-get update -y && apt-get install -y openssl
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -19,11 +20,19 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npx prisma generate
+
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://postgres:password@localhost:5432/aletheia"
+ENV DIRECT_URL="postgresql://postgres:password@localhost:5432/aletheia"
+ENV GROQ_API_KEY="dummy_key_for_build"
+ENV NEXTAUTH_SECRET="dummy_secret_for_build"
+ENV NEXTAUTH_URL="http://localhost:3000"
+
 
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \

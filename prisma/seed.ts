@@ -63,8 +63,16 @@ async function main() {
     });
 
     // 5. Enroll Student
-    await prisma.enrollment.create({
-        data: {
+    console.log('Upserting enrollment...');
+    await prisma.enrollment.upsert({
+        where: {
+            studentId_courseId: {
+                studentId: student.id,
+                courseId: course.id,
+            }
+        },
+        update: {},
+        create: {
             studentId: student.id,
             courseId: course.id,
         },

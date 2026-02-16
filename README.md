@@ -6,8 +6,6 @@
 
 Aletheia is an enterprise-grade B2B SaaS platform designed for universities. Instead of banning AI, Aletheia integrates it as a Socratic tutor that guides students through problems without giving direct answers. It simultaneously acts as a "flight recorder" for the learning process, verifying that the student did the work themselves through forensic keystroke dynamics and audit trail generation.
 
-![Start Dashboard](https://github.com/user-attachments/assets/placeholder-image-url)
-
 ## 🚀 Core Features
 
 ### Module A: The Pedagogical Gateway ("Socratic Firewall")
