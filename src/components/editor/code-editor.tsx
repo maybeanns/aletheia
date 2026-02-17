@@ -1,9 +1,48 @@
 'use client';
 
 import Editor, { OnMount } from '@monaco-editor/react';
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { TelemetryCollector } from '@/lib/telemetry/collector';
+
+// Comprehensive list of languages supported by Monaco Editor
+export const SUPPORTED_LANGUAGES = [
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'typescript', label: 'TypeScript' },
+    { value: 'python', label: 'Python' },
+    { value: 'java', label: 'Java' },
+    { value: 'c', label: 'C' },
+    { value: 'cpp', label: 'C++' },
+    { value: 'csharp', label: 'C#' },
+    { value: 'go', label: 'Go' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'ruby', label: 'Ruby' },
+    { value: 'php', label: 'PHP' },
+    { value: 'swift', label: 'Swift' },
+    { value: 'kotlin', label: 'Kotlin' },
+    { value: 'scala', label: 'Scala' },
+    { value: 'r', label: 'R' },
+    { value: 'perl', label: 'Perl' },
+    { value: 'lua', label: 'Lua' },
+    { value: 'dart', label: 'Dart' },
+    { value: 'elixir', label: 'Elixir' },
+    { value: 'clojure', label: 'Clojure' },
+    { value: 'haskell', label: 'Haskell' },
+    { value: 'html', label: 'HTML' },
+    { value: 'css', label: 'CSS' },
+    { value: 'scss', label: 'SCSS' },
+    { value: 'less', label: 'Less' },
+    { value: 'json', label: 'JSON' },
+    { value: 'xml', label: 'XML' },
+    { value: 'yaml', label: 'YAML' },
+    { value: 'markdown', label: 'Markdown' },
+    { value: 'sql', label: 'SQL' },
+    { value: 'shell', label: 'Shell / Bash' },
+    { value: 'powershell', label: 'PowerShell' },
+    { value: 'dockerfile', label: 'Dockerfile' },
+    { value: 'graphql', label: 'GraphQL' },
+    { value: 'plaintext', label: 'Plain Text' },
+];
 
 interface CodeEditorProps {
     initialContent?: string;
@@ -26,7 +65,6 @@ export default function CodeEditor({
     // Initialize telemetry collector
     const telemetry = useMemo(() => {
         return new TelemetryCollector((events) => {
-            // console.log('Flushing telemetry events:', events);
             if (onTelemetry) {
                 onTelemetry(events);
             }
@@ -63,10 +101,10 @@ export default function CodeEditor({
     }
 
     return (
-        <div className="h-full w-full border border-gray-200 rounded-lg overflow-hidden shadow-sm dark:border-gray-800">
+        <div className="h-full w-full border border-border rounded-lg overflow-hidden shadow-sm">
             <Editor
                 height="100%"
-                defaultLanguage={language}
+                language={language}
                 defaultValue={initialContent}
                 theme={theme === 'dark' ? 'vs-dark' : 'light'}
                 onMount={handleEditorDidMount}

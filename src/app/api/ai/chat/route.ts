@@ -5,6 +5,15 @@ import { model } from '@/lib/ai/gemini';
 
 export async function POST(req: NextRequest) {
     try {
+        // Check for required API keys
+        if (!process.env.GOOGLE_API_KEY) {
+            console.error('GOOGLE_API_KEY is not configured');
+            return NextResponse.json(
+                { error: 'AI service is not configured. Please set GOOGLE_API_KEY in environment variables.' },
+                { status: 503 }
+            );
+        }
+
         const body = await req.json();
         const { messages, assignmentContext, codeConstraints } = body;
 
@@ -55,6 +64,20 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error('Error in chat API:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+
+        // Provide more specific error information
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
+            return NextResponse.json(
+                { error: 'AI service authentication failed. Please check your API key configuration.' },
+                { status: 503 }
+            );
+        }
+
+        return NextResponse.json(
+            { error: 'Internal Server Error. The AI service encountered an issue processing your request.' },
+            { status: 500 }
+        );
     }
 }

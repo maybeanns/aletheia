@@ -25,10 +25,10 @@ export default function FacultySidebar() {
     const pathname = usePathname();
 
     return (
-        <aside className="w-64 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 flex flex-col h-full">
+        <aside className="w-64 border-r border-border bg-card flex flex-col h-full">
             <div className="p-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <span className="text-blue-600">Aletheia</span> Faculty
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                    <span className="text-primary">Aletheia</span> Faculty
                 </h2>
             </div>
 
@@ -44,8 +44,8 @@ export default function FacultySidebar() {
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
                                 isActive
-                                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-                                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                                    ? "bg-accent text-accent-foreground"
+                                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                             )}
                         >
                             <Icon className="h-5 w-5" />
@@ -55,8 +55,8 @@ export default function FacultySidebar() {
                 })}
             </nav>
 
-            <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-                <Button variant="ghost" className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+            <div className="p-4 border-t border-border">
+                <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10">
                     <LogOut className="h-5 w-5" />
                     Sign Out
                 </Button>

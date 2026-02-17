@@ -12,7 +12,7 @@ export default function LandingPage() {
       <header className="fixed top-0 w-full z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-heading font-bold text-xl">
-            <span className="text-blue-600">Aletheia</span>
+            <span className="text-primary">Aletheia</span>
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <Link href="#features" className="hover:text-foreground transition-colors">Features</Link>
@@ -24,7 +24,7 @@ export default function LandingPage() {
               Sign In
             </Link>
             <Link href="/register">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6">
                 Get Started
               </Button>
             </Link>
@@ -34,7 +34,7 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 container mx-auto px-4 text-center">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-background to-background"></div>
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background"></div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -42,30 +42,30 @@ export default function LandingPage() {
           transition={{ duration: 0.5 }}
           className="max-w-4xl mx-auto space-y-6"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400 text-sm font-medium mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/10 text-primary text-sm font-medium mb-4">
             <SparklesIcon className="w-4 h-4" />
             <span>The Flight Recorder for Education</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold font-heading tracking-tight text-white">
+          <h1 className="text-5xl md:text-7xl font-bold font-heading tracking-tight text-foreground">
             Verify the <span className="text-gradient">Process</span>,<br />
             Not Just the Product.
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Aletheia transforms AI from a tool for bypassing learning into a Socratic tutor.
-            We track the entire "commit history" of student cognition.
+            We track the entire &quot;commit history&quot; of student cognition.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
             <Link href="/register">
-              <Button size="lg" className="h-12 px-8 text-base bg-blue-600 hover:bg-blue-700 text-white rounded-full">
+              <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground rounded-full">
                 Deploy for your University
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
             <Link href="/demo">
-              <Button size="lg" variant="outline" className="h-12 px-8 text-base rounded-full border-gray-700 hover:bg-gray-800">
+              <Button size="lg" variant="outline" className="h-12 px-8 text-base rounded-full border-border hover:bg-accent hover:text-accent-foreground">
                 See Live Demo
               </Button>
             </Link>
@@ -77,16 +77,16 @@ export default function LandingPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-20 relative mx-auto max-w-5xl rounded-xl border border-border/50 bg-gray-900/50 shadow-2xl overflow-hidden aspect-[16/9]"
+          className="mt-20 relative mx-auto max-w-5xl rounded-xl border border-border/50 bg-card shadow-2xl overflow-hidden aspect-[16/9]"
         >
           {/* Abstract UI representation */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center space-y-4">
-              <div className="w-24 h-24 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center animate-pulse">
-                <ShieldCheck className="w-12 h-12 text-blue-400" />
+              <div className="w-24 h-24 mx-auto bg-primary/20 rounded-full flex items-center justify-center animate-pulse">
+                <ShieldCheck className="w-12 h-12 text-primary" />
               </div>
-              <p className="text-sm text-gray-400 font-mono">
-                Audit Token: <span className="text-green-400">Verified</span>
+              <p className="text-sm text-muted-foreground font-mono">
+                Audit Token: <span className="text-accent-foreground">Verified</span>
                 <br />
                 Session ID: 0x8F3...2A1
               </p>
@@ -96,14 +96,14 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-gray-900/30">
+      <section id="features" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4 text-white">
-              Three Pillars of <span className="text-blue-500">Academic Integrity</span>
+            <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4 text-foreground">
+              Three Pillars of <span className="text-primary">Academic Integrity</span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              We don't just detect AI. We re-engineer the assignment workflow to make integrity the path of least resistance.
+              We don&apos;t just detect AI. We re-engineer the assignment workflow to make integrity the path of least resistance.
             </p>
           </div>
 
@@ -147,12 +147,12 @@ function FeatureCard({ icon: Icon, title, description, delay }: { icon: any, tit
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay }}
-      className="p-6 rounded-2xl bg-gray-900/50 border border-border/50 hover:border-blue-500/30 transition-colors"
+      className="p-6 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-colors shadow-sm"
     >
-      <div className="w-12 h-12 rounded-lg bg-blue-900/20 flex items-center justify-center mb-4 text-blue-400">
+      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 text-primary">
         <Icon className="w-6 h-6" />
       </div>
-      <h3 className="text-xl font-bold font-heading mb-2 text-white">{title}</h3>
+      <h3 className="text-xl font-bold font-heading mb-2 text-foreground">{title}</h3>
       <p className="text-muted-foreground leading-relaxed">
         {description}
       </p>

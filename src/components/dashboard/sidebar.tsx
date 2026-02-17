@@ -49,12 +49,12 @@ export function Sidebar({ userRole }: SidebarProps) {
     return (
         <div className="flex h-full flex-col px-3 py-4 md:px-2">
             <Link
-                className="mb-2 flex h-20 items-end justify-start rounded-md bg-blue-600 p-4 md:h-32 hover:bg-blue-500 transition-colors"
+                className="mb-2 flex h-20 items-end justify-start rounded-md bg-primary p-4 md:h-32 hover:bg-primary/90 transition-colors"
                 href={links[0].href}
             >
-                <div className="w-32 text-white md:w-40">
+                <div className="w-32 text-primary-foreground md:w-40">
                     <h1 className="text-xl font-bold">Aletheia</h1>
-                    <p className="text-xs text-blue-100 mt-1">
+                    <p className="text-xs opacity-80 mt-1">
                         {userRole === 'PROFESSOR' ? 'Faculty Portal' : userRole === 'ADMIN' ? 'Admin Console' : 'Student Portal'}
                     </p>
                 </div>
@@ -67,8 +67,8 @@ export function Sidebar({ userRole }: SidebarProps) {
                             key={link.name}
                             href={link.href}
                             className={cn(
-                                'flex h-[48px] grow items-center justify-center gap-2 rounded-md bg-gray-50 p-3 text-sm font-medium hover:bg-sky-100 hover:text-blue-600 md:flex-none md:justify-start md:p-2 md:px-3 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-blue-400',
-                                pathname === link.href && 'bg-sky-100 text-blue-600 dark:bg-gray-800 dark:text-blue-400',
+                                'flex h-[48px] grow items-center justify-center gap-2 rounded-md bg-secondary p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground md:flex-none md:justify-start md:p-2 md:px-3 text-secondary-foreground',
+                                pathname === link.href && 'bg-accent text-accent-foreground',
                             )}
                         >
                             <LinkIcon className="w-6" />
@@ -76,19 +76,13 @@ export function Sidebar({ userRole }: SidebarProps) {
                         </Link>
                     );
                 })}
-                <div className="hidden h-auto w-full grow rounded-md bg-gray-50 md:block dark:bg-gray-900"></div>
+                <div className="hidden h-auto w-full grow rounded-md bg-secondary md:block"></div>
                 <form
                     action={async () => {
-                        // Client-side sign out requires wrapping in form or calling signOut()
-                        // Since we're in a client component, we can use signOut()
-                        // But wrapping in a form allows potential server action usage if we wanted
-                        // We'll just use a button with onClick for now, but to be consistent with Next.js forms
-                        // we can't easily invoke server action from client component directly without importing it
-                        // So we'll use next-auth/react signOut
                         await signOut();
                     }}
                 >
-                    <button className="flex h-[48px] w-full grow items-center justify-center gap-2 rounded-md bg-gray-50 p-3 text-sm font-medium hover:bg-sky-100 hover:text-blue-600 md:flex-none md:justify-start md:p-2 md:px-3 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:hover:text-red-400">
+                    <button className="flex h-[48px] w-full grow items-center justify-center gap-2 rounded-md bg-secondary p-3 text-sm font-medium hover:bg-destructive/10 hover:text-destructive md:flex-none md:justify-start md:p-2 md:px-3 text-secondary-foreground">
                         <LogOut className="w-6" />
                         <div className="hidden md:block">Sign Out</div>
                     </button>
