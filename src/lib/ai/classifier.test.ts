@@ -63,13 +63,49 @@ describe('classifyIntent', () => {
         expect(intent).toBe('CONCEPTUAL_QUESTION');
     });
 
-    it('should default to CONCEPTUAL_QUESTION if API key is missing', async () => {
+    it('should use keyword fallback when API key is missing', async () => {
         delete process.env.GROQ_API_KEY;
-        // We need to re-import or reset module state if possible, but 
-        // since `groq` instance is created at top-level, we might need to rely on the check inside function.
-        // The function checks process.env.GROQ_API_KEY at the start.
 
         const intent = await classifyIntent("test");
         expect(intent).toBe('CONCEPTUAL_QUESTION');
+    });
+
+    it('should extract valid intent even with extra text in response', async () => {
+        mockCreate.mockResolvedValueOnce({
+            choices: [{
+                message: { content: '  debugging_help  ' }
+            }]
+        });
+
+        const intent = await classifyIntent("My code returns undefined");
+
+        expect(intent).toBe('DEBUGGING_HELP');
+    });
+
+    // Keyword fallback tests
+    describe('keyword fallback', () => {
+        beforeEach(() => {
+            delete process.env.GROQ_API_KEY;
+        });
+
+        it('should detect solution seeking keywords', async () => {
+            const intent = await classifyIntent("Write me a function to sort an array");
+            expect(intent).toBe('DIRECT_SOLUTION_SEEKING');
+        });
+
+        it('should detect debugging keywords', async () => {
+            const intent = await classifyIntent("My code is not working, I get a TypeError");
+            expect(intent).toBe('DEBUGGING_HELP');
+        });
+
+        it('should detect conceptual keywords', async () => {
+            const intent = await classifyIntent("What is a binary search tree?");
+            expect(intent).toBe('CONCEPTUAL_QUESTION');
+        });
+
+        it('should detect brainstorming keywords', async () => {
+            const intent = await classifyIntent("How should I approach this problem?");
+            expect(intent).toBe('BRAINSTORMING');
+        });
     });
 });

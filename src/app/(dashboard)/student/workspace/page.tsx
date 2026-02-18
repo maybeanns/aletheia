@@ -196,7 +196,12 @@ export default function StudentWorkspacePage() {
 
                 {/* AI Chat Pane */}
                 <div className="w-[400px] shrink-0 hidden md:block">
-                    <ChatInterface aiMode={aiMode} />
+                    <ChatInterface
+                        aiMode={aiMode}
+                        assignmentContext="Implementing a Linked List in Javascript/Typescript"
+                        codeConstraints={['No built-in Array methods', 'Max 100 lines']}
+                        currentCode={assignmentType === 'code' ? code : textContent}
+                    />
                 </div>
             </div>
         </div>
