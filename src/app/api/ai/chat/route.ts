@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
     // ── Rate limiting ──────────────────────────────────────────────────────
     // Use the authenticated user ID if present; fall back to IP for guests
     const userId = req.headers.get('x-user-id') ??
-        req.ip ??
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
         'anonymous';
 

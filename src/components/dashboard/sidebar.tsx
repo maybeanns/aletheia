@@ -11,9 +11,11 @@ import {
     Users,
     Settings,
     LogOut,
-    GraduationCap
+    PanelLeftClose,
+    PanelLeft,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { useState } from 'react';
 
 interface SidebarProps {
     userRole: string;
@@ -21,6 +23,7 @@ interface SidebarProps {
 
 export function Sidebar({ userRole }: SidebarProps) {
     const pathname = usePathname();
+    const [collapsed, setCollapsed] = useState(false);
 
     const studentLinks = [
         { name: 'Dashboard', href: '/student', icon: LayoutDashboard },
@@ -46,45 +49,92 @@ export function Sidebar({ userRole }: SidebarProps) {
     if (userRole === 'PROFESSOR') links = facultyLinks;
     if (userRole === 'ADMIN') links = adminLinks;
 
+    const portalLabel = userRole === 'PROFESSOR'
+        ? 'Faculty Portal'
+        : userRole === 'ADMIN'
+            ? 'Admin Console'
+            : 'Student Portal';
+
     return (
-        <div className="flex h-full flex-col px-3 py-4 md:px-2">
+        <div
+            className={cn(
+                'flex h-full flex-col transition-all duration-300 ease-in-out',
+                collapsed ? 'w-[68px]' : 'w-64'
+            )}
+        >
+            {/* Logo / Brand */}
             <Link
-                className="mb-2 flex h-20 items-end justify-start rounded-md bg-primary p-4 md:h-32 hover:bg-primary/90 transition-colors"
+                className={cn(
+                    'flex items-end rounded-md bg-primary m-2 hover:bg-primary/90 transition-all overflow-hidden',
+                    collapsed ? 'h-14 justify-center p-2' : 'h-24 p-4'
+                )}
                 href={links[0].href}
             >
-                <div className="w-32 text-primary-foreground md:w-40">
-                    <h1 className="text-xl font-bold">Aletheia</h1>
-                    <p className="text-xs opacity-80 mt-1">
-                        {userRole === 'PROFESSOR' ? 'Faculty Portal' : userRole === 'ADMIN' ? 'Admin Console' : 'Student Portal'}
-                    </p>
+                <div className="text-primary-foreground">
+                    <h1 className={cn('font-bold', collapsed ? 'text-sm' : 'text-xl')}>
+                        {collapsed ? 'A' : 'Aletheia'}
+                    </h1>
+                    {!collapsed && (
+                        <p className="text-xs opacity-80 mt-0.5">{portalLabel}</p>
+                    )}
                 </div>
             </Link>
-            <div className="flex grow flex-row justify-between space-x-2 md:flex-col md:space-x-0 md:space-y-2">
+
+            {/* Navigation Links */}
+            <nav className="flex flex-col gap-1 px-2 mt-2 flex-1">
                 {links.map((link) => {
                     const LinkIcon = link.icon;
+                    const isActive = pathname === link.href;
                     return (
                         <Link
                             key={link.name}
                             href={link.href}
+                            title={link.name}
                             className={cn(
-                                'flex h-[48px] grow items-center justify-center gap-2 rounded-md bg-secondary p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground md:flex-none md:justify-start md:p-2 md:px-3 text-secondary-foreground',
-                                pathname === link.href && 'bg-accent text-accent-foreground',
+                                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                                'text-secondary-foreground hover:bg-accent hover:text-accent-foreground',
+                                isActive && 'bg-accent text-accent-foreground',
+                                collapsed && 'justify-center px-0'
                             )}
                         >
-                            <LinkIcon className="w-6" />
-                            <p className="hidden md:block">{link.name}</p>
+                            <LinkIcon className="h-5 w-5 shrink-0" />
+                            {!collapsed && <span>{link.name}</span>}
                         </Link>
                     );
                 })}
-                <div className="hidden h-auto w-full grow rounded-md bg-secondary md:block"></div>
-                <form
-                    action={async () => {
-                        await signOut();
-                    }}
+            </nav>
+
+            {/* Bottom actions */}
+            <div className="mt-auto px-2 pb-2 flex flex-col gap-1">
+                {/* Collapse toggle */}
+                <button
+                    onClick={() => setCollapsed(!collapsed)}
+                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                        'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        collapsed && 'justify-center px-0'
+                    )}
                 >
-                    <button className="flex h-[48px] w-full grow items-center justify-center gap-2 rounded-md bg-secondary p-3 text-sm font-medium hover:bg-destructive/10 hover:text-destructive md:flex-none md:justify-start md:p-2 md:px-3 text-secondary-foreground">
-                        <LogOut className="w-6" />
-                        <div className="hidden md:block">Sign Out</div>
+                    {collapsed
+                        ? <PanelLeft className="h-5 w-5 shrink-0" />
+                        : <PanelLeftClose className="h-5 w-5 shrink-0" />
+                    }
+                    {!collapsed && <span>Collapse</span>}
+                </button>
+
+                {/* Sign Out */}
+                <form action={async () => { await signOut(); }}>
+                    <button
+                        title="Sign Out"
+                        className={cn(
+                            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            'text-secondary-foreground hover:bg-destructive/10 hover:text-destructive',
+                            collapsed && 'justify-center px-0'
+                        )}
+                    >
+                        <LogOut className="h-5 w-5 shrink-0" />
+                        {!collapsed && <span>Sign Out</span>}
                     </button>
                 </form>
             </div>

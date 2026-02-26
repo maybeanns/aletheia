@@ -16,11 +16,14 @@ export default async function DashboardLayout({
     const role = (session.user as any).role || 'STUDENT';
 
     return (
-        <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-background">
-            <div className="w-full flex-none md:w-64 border-r border-border">
+        <div className="flex h-screen overflow-hidden bg-background">
+            {/* Sidebar — controls its own width via collapsed state */}
+            <div className="shrink-0 border-r border-border hidden md:block">
                 <Sidebar userRole={role} />
             </div>
-            <div className="flex-grow p-6 md:overflow-y-auto md:p-12">
+
+            {/* Main content — no massive padding, just enough for breathing room */}
+            <div className="flex-1 overflow-y-auto">
                 {children}
             </div>
         </div>

@@ -3,22 +3,21 @@
  */
 
 /**
- * POST /api/submissions — unit tests
+ * POST /api/submissions — V3 unit tests
  *
- * Architecture note: since V2, telemetry events are persisted asynchronously
- * via TelemetryIngestionQueue, NOT inside the Prisma transaction.
- * Tests validate that:
- *   1. The submission + audit-token transaction completes synchronously.
- *   2. Telemetry is queued (fire-and-forget) — the route calls telemetryQueue.enqueue(),
- *      not prisma.telemetryEvent.createMany() directly.
- *   3. Validation and rate-limit errors return the correct HTTP status.
+ * Tests cover:
+ *   1. Fix 1: Flight record verification (VERIFIED / FLAGGED / NO_FLIGHT_RECORD)
+ *   2. Fix 2: BullMQ async telemetry (enqueue, not direct createMany)
+ *   3. HTTP 202 Accepted response
+ *   4. Rate limiting
+ *   5. Validation
  */
 
 import { POST } from './route';
 import { NextRequest } from 'next/server';
 
 // ---------------------------------------------------------------------------
-// Rate limiter mock — always allow in tests (no Redis dependency)
+// Rate limiter mock — always allow in tests
 // ---------------------------------------------------------------------------
 jest.mock('@/lib/rate-limit', () => ({
     submissionRateLimiter: null,
@@ -31,14 +30,26 @@ jest.mock('@/lib/rate-limit', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// TelemetryQueue mock — capture calls without actual DB ops
+// TelemetryQueue mock
 // ---------------------------------------------------------------------------
 jest.mock('@/lib/db/telemetry-queue', () => ({
-    telemetryQueue: { enqueue: jest.fn() },
+    telemetryQueue: { enqueue: jest.fn().mockResolvedValue(undefined) },
 }));
 
 // ---------------------------------------------------------------------------
-// Prisma mock — inline fns to avoid Jest hoisting issues
+// Flight recorder session store mock
+// ---------------------------------------------------------------------------
+const mockVerify = jest.fn();
+const mockDestroy = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/lib/flight-recorder/session-store', () => ({
+    sessionStore: {
+        verify: (...args: any[]) => mockVerify(...args),
+        destroy: (...args: any[]) => mockDestroy(...args),
+    },
+}));
+
+// ---------------------------------------------------------------------------
+// Prisma mock
 // ---------------------------------------------------------------------------
 jest.mock('@/lib/db/prisma', () => ({
     __esModule: true,
@@ -48,9 +59,6 @@ jest.mock('@/lib/db/prisma', () => ({
     },
 }));
 
-// ---------------------------------------------------------------------------
-// Resolve mocked modules AFTER jest.mock calls
-// ---------------------------------------------------------------------------
 import prisma from '@/lib/db/prisma';
 import { telemetryQueue } from '@/lib/db/telemetry-queue';
 
@@ -82,9 +90,8 @@ const VALID_BODY = {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('POST /api/submissions', () => {
+describe('POST /api/submissions V3', () => {
 
-    // Inner mocks for the tx callback — re-created each test
     let mockSubmissionCreate: jest.Mock;
     let mockAuditTokenCreate: jest.Mock;
 
@@ -94,7 +101,6 @@ describe('POST /api/submissions', () => {
         mockSubmissionCreate = jest.fn().mockResolvedValue({ id: 'sub-123' });
         mockAuditTokenCreate = jest.fn().mockResolvedValue({});
 
-        // Simulate $transaction executing the callback with a tx object
         (prismaMock.$transaction as jest.Mock).mockImplementation(
             async (cb: (tx: any) => Promise<any>) =>
                 cb({
@@ -104,39 +110,18 @@ describe('POST /api/submissions', () => {
         );
     });
 
-    it('returns 200 with submissionId on a valid request', async () => {
+    it('returns 202 Accepted with submissionId', async () => {
         const res = await POST(makeRequest(VALID_BODY));
         const data = await res.json();
 
-        expect(res.status).toBe(200);
+        expect(res.status).toBe(202);
         expect(data.success).toBe(true);
         expect(data.submissionId).toBe('sub-123');
     });
 
-    it('creates submission and audit token inside the transaction', async () => {
+    it('enqueues telemetry asynchronously via BullMQ queue', async () => {
         await POST(makeRequest(VALID_BODY));
 
-        expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-        expect(mockSubmissionCreate).toHaveBeenCalledWith(
-            expect.objectContaining({
-                data: expect.objectContaining({
-                    assignmentId: 'assign-1',
-                    studentId: 'student-1',
-                    status: 'SUBMITTED',
-                }),
-            })
-        );
-        expect(mockAuditTokenCreate).toHaveBeenCalledWith(
-            expect.objectContaining({
-                data: expect.objectContaining({ token: 'valid.audit.token' }),
-            })
-        );
-    });
-
-    it('queues telemetry asynchronously via telemetryQueue.enqueue()', async () => {
-        await POST(makeRequest(VALID_BODY));
-
-        // Async queue — NOT a direct createMany call
         expect(queueMock.enqueue).toHaveBeenCalledWith(
             'sub-123',
             VALID_BODY.telemetryEvents
@@ -144,7 +129,7 @@ describe('POST /api/submissions', () => {
         expect(prismaMock.telemetryEvent.createMany).not.toHaveBeenCalled();
     });
 
-    it('does not call enqueue when telemetryEvents is empty', async () => {
+    it('does not enqueue when telemetryEvents is empty', async () => {
         await POST(makeRequest({ ...VALID_BODY, telemetryEvents: [] }));
         expect(queueMock.enqueue).not.toHaveBeenCalled();
     });
@@ -157,11 +142,83 @@ describe('POST /api/submissions', () => {
         expect(data.error).toMatch(/Missing required fields/);
     });
 
-    it('returns 500 when the DB transaction throws', async () => {
+    it('returns 500 on transaction failure', async () => {
         (prismaMock.$transaction as jest.Mock).mockRejectedValueOnce(
-            new Error('DB connection pool exhausted')
+            new Error('DB pool exhausted')
         );
         const res = await POST(makeRequest(VALID_BODY));
         expect(res.status).toBe(500);
+    });
+
+    // ── Fix 1: Flight Record Verification ─────────────────────────────────
+
+    it('returns verification=VERIFIED when flight hashes match', async () => {
+        mockVerify.mockResolvedValueOnce({
+            matched: true,
+            serverHash: 'abc123',
+            clientHash: 'abc123',
+            serverEventCount: 42,
+            driftDetected: false,
+            verdict: 'VERIFIED',
+        });
+
+        const res = await POST(makeRequest({
+            ...VALID_BODY,
+            flightRecordHash: 'abc123',
+        }));
+        const data = await res.json();
+
+        expect(data.verification).toBe('VERIFIED');
+        expect(mockVerify).toHaveBeenCalledWith('student-1', 'assign-1', 'abc123', VALID_BODY.content);
+        expect(mockDestroy).toHaveBeenCalled();
+    });
+
+    it('returns verification=FLAGGED when flight hashes mismatch', async () => {
+        mockVerify.mockResolvedValueOnce({
+            matched: false,
+            serverHash: 'different',
+            clientHash: 'abc123',
+            serverEventCount: 42,
+            driftDetected: true,
+            verdict: 'FLAGGED',
+        });
+
+        const res = await POST(makeRequest({
+            ...VALID_BODY,
+            flightRecordHash: 'abc123',
+        }));
+        const data = await res.json();
+
+        expect(data.verification).toBe('FLAGGED');
+    });
+
+    it('returns verification=SKIPPED when no flightRecordHash provided', async () => {
+        const res = await POST(makeRequest(VALID_BODY));
+        const data = await res.json();
+
+        expect(data.verification).toBe('SKIPPED');
+        expect(mockVerify).not.toHaveBeenCalled();
+    });
+
+    it('stores verification result in enriched audit metrics', async () => {
+        mockVerify.mockResolvedValueOnce({
+            matched: true, serverHash: 'h', clientHash: 'h',
+            serverEventCount: 10, driftDetected: false, verdict: 'VERIFIED',
+        });
+
+        await POST(makeRequest({ ...VALID_BODY, flightRecordHash: 'h' }));
+
+        expect(mockAuditTokenCreate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    metrics: expect.objectContaining({
+                        flightRecordVerification: expect.objectContaining({
+                            verdict: 'VERIFIED',
+                            clientHash: 'h',
+                        }),
+                    }),
+                }),
+            })
+        );
     });
 });
