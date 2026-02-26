@@ -4,9 +4,10 @@ import { useState, useCallback, useRef } from 'react';
 import CodeEditor, { SUPPORTED_LANGUAGES } from '@/components/editor/code-editor';
 import ChatInterface from '@/components/chat/chat-interface';
 import { Button } from '@/components/ui/button';
-import { Play, UploadCloud, Code2, FileText } from 'lucide-react';
+import { Play, UploadCloud, Code2, FileText, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { AuditTokenGenerator } from '@/lib/telemetry/audit-token';
+import { TelemetryCollector } from '@/lib/telemetry/collector';
 import dynamic from 'next/dynamic';
 
 // Lazy-load text editor to avoid SSR issues with TipTap
@@ -29,26 +30,58 @@ export default function StudentWorkspacePage() {
     const [aiMode, setAiMode] = useState<'BRAINSTORMING' | 'EXAM'>('BRAINSTORMING');
     const [assignmentType, setAssignmentType] = useState<'code' | 'text'>('code');
     const [language, setLanguage] = useState('javascript');
+    const [driftFlagged, setDriftFlagged] = useState(false);
+
     const generatorRef = useRef(new AuditTokenGenerator(RECOVERY_SECRET));
+
+    /**
+     * A single shared TelemetryCollector for the code editor.
+     * We keep it in a ref so the same instance accumulates keystroke
+     * timestamps across the whole session.  The code-editor component
+     * also holds an internal collector for event batching; this ref is
+     * used only for finaliseSession() at submit time.
+     *
+     * NOTE: because CodeEditor creates its own TelemetryCollector internally,
+     * the workspace page tracks its own "surface-level" counts through the
+     * onTelemetry callback, while the code editor's internal collector handles
+     * the IKI profile.  On submission we trigger finaliseSession() through the
+     * collector exposed by the editor's ref.
+     */
+    const telemetryRef = useRef<TelemetryCollector | null>(null);
 
     const handleTelemetry = useCallback((events: any[]) => {
         setTelemetryEvents((prev) => [...prev, ...events]);
     }, []);
 
+    /** Called by the CodeEditor to expose its internal collector */
+    const handleCollectorReady = useCallback((collector: TelemetryCollector) => {
+        telemetryRef.current = collector;
+    }, []);
+
     const handleSubmit = async () => {
         const content = assignmentType === 'code' ? code : textContent;
 
-        // Calculate basic metrics from telemetry
+        // ── Finalise IKI analysis ──────────────────────────────────────────
+        const driftReport = telemetryRef.current?.finaliseSession() ?? null;
+        const ikiProfile = telemetryRef.current?.getProfile() ?? null;
+
+        if (driftReport?.isFlagged) {
+            setDriftFlagged(true);
+        }
+
+        // ── Build basic metrics from event log ────────────────────────────
         const keystrokes = telemetryEvents.filter(e => e.type === 'keystroke');
         const pastes = telemetryEvents.filter(e => e.type === 'paste');
 
         const metrics = {
             typingEfficiency: keystrokes.length > 0 ? content.length / keystrokes.length : 0,
             pasteCount: pastes.length,
-            pasteVolume: pastes.reduce((acc, p) => acc + (p.data.range?.endColumn - p.data.range?.startColumn || 0), 0),
+            pasteVolume: pastes.reduce((acc, p) => acc + (p.data?.characterCount ?? 0), 0),
             totalTimeMs: 0,
             aiInteractionCount: 0,
-            editDistance: 0
+            editDistance: 0,
+            ikiDriftReport: driftReport,
+            ikiProfile: ikiProfile,
         };
 
         const token = generatorRef.current.generateToken({
@@ -56,10 +89,13 @@ export default function StudentWorkspacePage() {
             metrics,
             timestamp: Date.now(),
             sessionId: 'session-123',
-            studentId: 'user-student-456'
+            studentId: 'user-student-456',
         });
 
         console.log('Submission Token Generated:', token);
+        if (driftReport) {
+            console.log('IKI Drift Report:', driftReport);
+        }
 
         try {
             const response = await fetch('/api/submissions', {
@@ -68,12 +104,12 @@ export default function StudentWorkspacePage() {
                 body: JSON.stringify({
                     assignmentId: 'assign-linked-list',
                     studentId: 'user-student-456',
-                    content: content,
+                    content,
                     assignmentType,
                     language: assignmentType === 'code' ? language : undefined,
                     auditToken: token,
                     auditMetrics: metrics,
-                    telemetryEvents: telemetryEvents
+                    telemetryEvents,
                 }),
             });
 
@@ -83,11 +119,12 @@ export default function StudentWorkspacePage() {
             }
 
             const result = await response.json();
-            alert(`Submission successful! ID: ${result.submissionId}\nAudit Token: ${token.substring(0, 20)}...`);
+            const driftNote = driftReport?.isFlagged
+                ? `\n⚠️  Typing-signature anomaly detected (drift score: ${driftReport.driftScore.toFixed(2)})`
+                : '';
+            alert(`Submission successful! ID: ${result.submissionId}\nAudit Token: ${token.substring(0, 20)}...${driftNote}`);
 
-            // Optional: Clear events after success
             setTelemetryEvents([]);
-
         } catch (error) {
             console.error('Submission error:', error);
             alert('Failed to submit assignment. Please try again.');
@@ -108,6 +145,19 @@ export default function StudentWorkspacePage() {
                     <span className="text-xs text-muted-foreground">
                         Events: {telemetryEvents.length}
                     </span>
+
+                    {/* IKI drift indicator */}
+                    {driftFlagged ? (
+                        <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                            <AlertTriangle className="h-3 w-3" />
+                            Typing anomaly
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            <ShieldCheck className="h-3 w-3" />
+                            Signature normal
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Assignment Type Toggle */}
@@ -184,6 +234,7 @@ export default function StudentWorkspacePage() {
                             onChange={(value) => setCode(value || '')}
                             language={language}
                             onTelemetry={handleTelemetry}
+                            onCollectorReady={handleCollectorReady}
                         />
                     ) : (
                         <TextEditor

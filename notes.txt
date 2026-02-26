@@ -1,0 +1,12 @@
+Scaling Plan:
+
+Decoupling the Write Path: Move telemetry away from the submissions table. We’d push telemetry events into a Kafka topic or an AWS Kinesis stream immediately upon receipt.
+Specialized Data Stores: Meta-data (student ID, assignment ID) stays in PostgreSQL, but the "Flight Recorder" data (keystrokes, timestamps) moves to a Time-Series Database like TimescaleDB or InfluxDB, which are optimized for high-ingest, write-heavy workloads.
+Audit Calculation: Instead of calculating the token at submission, a background worker would consume the Kafka stream and verify the "provenance" asynchronously, updating the submission status to VERIFIED or FLAGGED once the processing is done. This keeps the user-facing POST request extremely fast and resilient.]
+
+
+
+Fix 1:
+Production Fix: We are moving toward Server-Side Streaming Verification. The client will stream events via WebSockets to our backend during the entire session. The backend will maintain its own running hash of the work. If the final submission doesn't match the server's accumulated "flight record," it is flagged for manual review. We effectively move the "Root of Trust" from the student's browser to our secure environment.
+Fix 2:
+Fix: For enterprise scale, we would shift to an Asynchronous Persistence Pattern. The API would write the telemetry batch to a Redis-backed queue or Kafka topic immediately and return a 202 Accepted to the student. A background worker (using BullMQ or similar) would then "drain" the queue and perform the heavy DB inserts out-of-band.

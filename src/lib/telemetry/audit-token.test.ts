@@ -19,7 +19,9 @@ describe('AuditTokenGenerator', () => {
                 pasteVolume: 0,
                 totalTimeMs: 1000,
                 aiInteractionCount: 0,
-                editDistance: 10
+                editDistance: 10,
+                ikiDriftReport: null,
+                ikiProfile: null,
             },
             timestamp: Date.now(),
             sessionId: 'session-123',
@@ -41,7 +43,9 @@ describe('AuditTokenGenerator', () => {
                 pasteVolume: 0,
                 totalTimeMs: 1000,
                 aiInteractionCount: 0,
-                editDistance: 10
+                editDistance: 10,
+                ikiDriftReport: null,
+                ikiProfile: null,
             },
             timestamp: Date.now(),
             sessionId: 'session-123',
@@ -63,7 +67,9 @@ describe('AuditTokenGenerator', () => {
                 pasteVolume: 0,
                 totalTimeMs: 1000,
                 aiInteractionCount: 0,
-                editDistance: 10
+                editDistance: 10,
+                ikiDriftReport: null,
+                ikiProfile: null,
             },
             timestamp: Date.now(),
             sessionId: 'session-123',

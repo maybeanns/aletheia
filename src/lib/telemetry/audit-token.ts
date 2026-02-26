@@ -2,14 +2,19 @@ import SHA256 from 'crypto-js/sha256';
 import HmacSHA256 from 'crypto-js/hmac-sha256';
 import Base64 from 'crypto-js/enc-base64';
 import Utf8 from 'crypto-js/enc-utf8';
+import type { DriftReport, IKIProfile } from './iki-analyzer';
 
 export interface AuditMetrics {
-    typingEfficiency: number; // e.g., chars typed / total chars
+    typingEfficiency: number; // chars typed / total chars
     pasteCount: number;
-    pasteVolume: number; // total chars pasted
+    pasteVolume: number;       // total chars pasted
     totalTimeMs: number;
     aiInteractionCount: number;
-    editDistance: number; // Levenshtein distance between start and end (rough)
+    editDistance: number;      // Levenshtein distance (rough)
+    /** IKI-based typing-signature drift report for this submission */
+    ikiDriftReport: DriftReport | null;
+    /** Snapshot of the student's rolling IKI profile at submission time */
+    ikiProfile: IKIProfile | null;
 }
 
 export interface AuditTokenPayload {
@@ -48,11 +53,10 @@ export class AuditTokenGenerator {
             const [payloadB64, signature] = parts;
 
             const payloadWords = Base64.parse(payloadB64);
-            // Verify signature
             const expectedSignature = Base64.stringify(HmacSHA256(payloadWords, this.secretKey));
 
             return signature === expectedSignature;
-        } catch (e) {
+        } catch {
             return false;
         }
     }
@@ -64,7 +68,7 @@ export class AuditTokenGenerator {
             const payloadWords = Base64.parse(payloadB64);
             const payloadString = Utf8.stringify(payloadWords);
             return JSON.parse(payloadString);
-        } catch (e) {
+        } catch {
             return null;
         }
     }

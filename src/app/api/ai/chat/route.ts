@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { classifyIntent } from '@/lib/ai/classifier';
 import { generateSystemPrompt, SocraticContext } from '@/lib/ai/socratic-engine';
-import { model } from '@/lib/ai/gemini';
+import { meshStream } from '@/lib/ai/model-mesh';
+import { checkRateLimit, chatRateLimiter } from '@/lib/rate-limit';
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -10,8 +11,7 @@ interface ChatMessage {
 
 /**
  * Convert our frontend message format to Gemini's expected history format.
- * Gemini expects alternating user/model turns. We skip system messages
- * and collapse consecutive same-role messages.
+ * Gemini requires alternating user/model turns.
  */
 function buildGeminiHistory(messages: ChatMessage[]) {
     const history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
@@ -20,27 +20,19 @@ function buildGeminiHistory(messages: ChatMessage[]) {
         const geminiRole = msg.role === 'assistant' ? 'model' : 'user';
         const lastEntry = history[history.length - 1];
 
-        // Gemini requires alternating roles — merge consecutive same-role messages
+        // Merge consecutive same-role messages (Gemini requires strict alternation)
         if (lastEntry && lastEntry.role === geminiRole) {
             lastEntry.parts[0].text += '\n\n' + msg.content;
         } else {
-            history.push({
-                role: geminiRole,
-                parts: [{ text: msg.content }],
-            });
+            history.push({ role: geminiRole, parts: [{ text: msg.content }] });
         }
     }
 
-    // Gemini requires history to start with 'user' — prepend a synthetic user turn if needed
+    // History must start with 'user'
     if (history.length > 0 && history[0].role === 'model') {
-        history.unshift({
-            role: 'user',
-            parts: [{ text: '[Conversation started]' }],
-        });
+        history.unshift({ role: 'user', parts: [{ text: '[Conversation started]' }] });
     }
-
-    // Gemini requires history to end with 'model' — remove trailing user message
-    // (because we send the current user message separately via sendMessageStream)
+    // Remove trailing user (will be sent via sendMessageStream)
     if (history.length > 0 && history[history.length - 1].role === 'user') {
         history.pop();
     }
@@ -51,23 +43,42 @@ function buildGeminiHistory(messages: ChatMessage[]) {
 /**
  * POST /api/ai/chat
  *
- * Industry-grade Socratic chat endpoint with:
- * - Full conversation history (fixes memory loss)
- * - Streaming responses via ReadableStream
- * - Intent classification + Socratic Gateway
+ * Socratic chat endpoint with:
+ * - Per-user rate limiting (Upstash Redis sliding window)
+ * - Model Mesh failover: Gemini → Groq 70B → Groq 8B → stub
+ * - Intent classification (Groq LLaMA-3, keyword fallback)
+ * - Streaming NDJSON response
  * - AI Mode awareness (Brainstorming vs Exam)
- * - Current code context for relevant guidance
  */
 export async function POST(req: NextRequest) {
-    try {
-        // Validate API key
-        if (!process.env.GOOGLE_API_KEY) {
-            return Response.json(
-                { error: 'AI service is not configured. Please set GOOGLE_API_KEY.' },
-                { status: 503 }
-            );
-        }
+    // ── Rate limiting ──────────────────────────────────────────────────────
+    // Use the authenticated user ID if present; fall back to IP for guests
+    const userId = req.headers.get('x-user-id') ??
+        req.ip ??
+        req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+        'anonymous';
 
+    const rateLimit = await checkRateLimit(chatRateLimiter, userId, 'chat');
+
+    if (!rateLimit.allowed) {
+        const retryAfterSec = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+        return Response.json(
+            {
+                error: 'Too many requests. Please slow down — the AI is thinking!',
+                retryAfter: retryAfterSec,
+            },
+            {
+                status: 429,
+                headers: {
+                    'Retry-After': String(retryAfterSec),
+                    'X-RateLimit-Remaining': String(rateLimit.remaining),
+                    'X-RateLimit-Reset': String(rateLimit.resetAt),
+                },
+            }
+        );
+    }
+
+    try {
         const body = await req.json();
         const {
             messages,
@@ -79,21 +90,24 @@ export async function POST(req: NextRequest) {
 
         // Validate input
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            return Response.json({ error: 'Messages are required.' }, { status: 400 });
+            return Response.json({ error: 'Messages array is required.' }, { status: 400 });
         }
 
         const lastMessage = messages[messages.length - 1];
         if (!lastMessage || lastMessage.role !== 'user' || !lastMessage.content?.trim()) {
-            return Response.json({ error: 'Last message must be a non-empty user message.' }, { status: 400 });
+            return Response.json(
+                { error: 'Last message must be a non-empty user message.' },
+                { status: 400 }
+            );
         }
 
         const userPrompt = lastMessage.content.trim();
 
-        // ── Step 1: Classify Intent (Fast, LLaMA-3 via Groq) ──
+        // ── Step 1: Classify Intent (Groq LLaMA-3, keyword fallback) ──────
         const intent = await classifyIntent(userPrompt);
-        console.log(`[Socratic Gateway] Intent: ${intent} | Mode: ${aiMode}`);
+        console.log(`[Socratic Gateway] Intent: ${intent} | Mode: ${aiMode} | Provider: mesh`);
 
-        // ── Step 2: Generate Socratic System Prompt ──
+        // ── Step 2: Generate context-aware Socratic system prompt ──────────
         const context: SocraticContext = {
             assignmentContext,
             codeConstraints,
@@ -103,48 +117,54 @@ export async function POST(req: NextRequest) {
         };
         const systemPrompt = generateSystemPrompt(intent, context);
 
-        // ── Step 3: Build conversation history for Gemini ──
-        // Include the system prompt as the first exchange, then replay the conversation 
+        // ── Step 3: Build provider-agnostic history ────────────────────────
         const previousMessages = messages.slice(0, -1) as ChatMessage[];
-        const conversationHistory = buildGeminiHistory(previousMessages);
+        const geminiHistory = buildGeminiHistory(previousMessages);
 
-        // Prepend the Socratic system prompt as the opening exchange
-        const fullHistory = [
+        // Prepend system prompt as the opening exchange for Gemini
+        const fullGeminiHistory = [
             { role: 'user' as const, parts: [{ text: systemPrompt }] },
-            { role: 'model' as const, parts: [{ text: 'Understood. I am Aletheia, operating as a Socratic Tutor. I will follow the response strategy provided.' }] },
-            ...conversationHistory,
+            {
+                role: 'model' as const,
+                parts: [{ text: 'Understood. I am Aletheia, operating as a Socratic Tutor. I will follow the response strategy provided.' }],
+            },
+            ...geminiHistory,
         ];
 
-        // ── Step 4: Stream response from Gemini ──
-        const chat = model.startChat({
-            history: fullHistory,
-        });
-
-        const result = await chat.sendMessageStream(userPrompt);
-
-        // Create a ReadableStream that pipes Gemini's chunks to the client
+        // ── Step 4: Stream through the Model Mesh ─────────────────────────
         const encoder = new TextEncoder();
+
         const stream = new ReadableStream({
             async start(controller) {
                 try {
-                    for await (const chunk of result.stream) {
-                        const text = chunk.text();
-                        if (text) {
-                            // SSE format: each chunk is a JSON line
-                            const payload = JSON.stringify({ content: text, intent }) + '\n';
-                            controller.enqueue(encoder.encode(payload));
+                    for await (const chunk of meshStream({
+                        systemPrompt,
+                        history: fullGeminiHistory,
+                        messages: previousMessages,
+                        userMessage: userPrompt,
+                    })) {
+                        const payload = JSON.stringify({
+                            content: chunk.content,
+                            intent,
+                            provider: chunk.provider,
+                            isDegraded: chunk.isDegraded,
+                            done: chunk.done,
+                        }) + '\n';
+
+                        controller.enqueue(encoder.encode(payload));
+
+                        if (chunk.done) {
+                            controller.close();
+                            return;
                         }
                     }
-                    // Send a final done signal
-                    controller.enqueue(encoder.encode(JSON.stringify({ done: true, intent }) + '\n'));
-                    controller.close();
-                } catch (streamError) {
-                    console.error('[Socratic Gateway] Stream error:', streamError);
-                    const errPayload = JSON.stringify({
-                        error: 'Stream interrupted. Please try again.',
-                        intent,
-                    }) + '\n';
-                    controller.enqueue(encoder.encode(errPayload));
+                } catch (streamErr) {
+                    console.error('[Socratic Gateway] Stream error:', streamErr);
+                    controller.enqueue(
+                        encoder.encode(
+                            JSON.stringify({ error: 'Stream interrupted. Please try again.', intent }) + '\n'
+                        )
+                    );
                     controller.close();
                 }
             },
@@ -156,16 +176,17 @@ export async function POST(req: NextRequest) {
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
                 'X-Intent': intent,
+                'X-RateLimit-Remaining': String(rateLimit.remaining),
             },
         });
 
     } catch (error) {
         console.error('[Socratic Gateway] Error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const msg = error instanceof Error ? error.message : 'Unknown error';
 
-        if (errorMessage.includes('API key') || errorMessage.includes('API_KEY')) {
+        if (msg.includes('API key') || msg.includes('API_KEY')) {
             return Response.json(
-                { error: 'AI service authentication failed. Check your API key.' },
+                { error: 'AI service authentication failed. Check your API key configuration.' },
                 { status: 503 }
             );
         }
