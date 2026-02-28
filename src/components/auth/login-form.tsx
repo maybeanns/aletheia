@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { authenticate } from '@/lib/actions/auth';
 import { cn } from '@/lib/utils/cn';
 import { AtSign, KeyRound, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginForm() {
     const [errorMessage, dispatch, isPending] = useActionState(authenticate, undefined);
@@ -65,9 +66,9 @@ export default function LoginForm() {
             </div>
             <div className="mt-4 text-center text-sm">
                 <span className="text-muted-foreground">Don&apos;t have an account? </span>
-                <a href="/register" className="font-medium text-primary hover:text-primary/80">
+                <Link href="/register" className="font-medium text-primary hover:text-primary/80">
                     Sign up
-                </a>
+                </Link>
             </div>
         </form>
     );
@@ -83,6 +84,7 @@ function LoginButton() {
                 pending && "opacity-50 cursor-not-allowed"
             )}
             aria-disabled={pending}
+            disabled={pending}
         >
             Sign in <ArrowRight className="ml-auto h-5 w-5" />
         </button>

@@ -12,13 +12,13 @@ import {
     LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { signOut } from 'next-auth/react';
 
 const navItems = [
-    { href: '/faculty/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { href: '/faculty', label: 'Overview', icon: LayoutDashboard },
     { href: '/faculty/courses', label: 'My Courses', icon: BookOpen },
-    { href: '/faculty/assignments', label: 'Assignments', icon: FileText },
+    { href: '/faculty/submissions', label: 'Submissions', icon: FileText },
     { href: '/faculty/analytics', label: 'Analytics', icon: BarChart3 },
-    { href: '/faculty/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function FacultySidebar() {
@@ -56,7 +56,11 @@ export default function FacultySidebar() {
             </nav>
 
             <div className="p-4 border-t border-border">
-                <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => signOut()}
+                >
                     <LogOut className="h-5 w-5" />
                     Sign Out
                 </Button>

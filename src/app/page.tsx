@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ShieldCheck, Zap, BrainCircuit, Lock, GraduationCap, FileSearch } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, BrainCircuit, Lock, GraduationCap, FileSearch, Menu, X } from 'lucide-react';
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground overflow-hidden">
       {/* Navbar */}
@@ -20,16 +23,40 @@ export default function LandingPage() {
             <Link href="#security" className="hover:text-foreground transition-colors">Security</Link>
           </nav>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors hidden sm:block">
               Sign In
             </Link>
-            <Link href="/register">
+            <Link href="/register" className="hidden sm:block">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6">
                 Get Started
               </Button>
             </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-md text-foreground hover:bg-accent transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-md">
+            <nav className="container mx-auto px-4 py-4 flex flex-col gap-3">
+              <Link href="#features" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2">Features</Link>
+              <Link href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2">How it Works</Link>
+              <Link href="#security" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2">Security</Link>
+              <div className="flex items-center gap-3 pt-2 border-t border-border/40">
+                <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors">Sign In</Link>
+                <Link href="/register">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6" size="sm">Get Started</Button>
+                </Link>
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
@@ -64,9 +91,9 @@ export default function LandingPage() {
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
-            <Link href="/demo">
+            <Link href="#features">
               <Button size="lg" variant="outline" className="h-12 px-8 text-base rounded-full border-border hover:bg-accent hover:text-accent-foreground">
-                See Live Demo
+                See How It Works
               </Button>
             </Link>
           </div>
@@ -126,6 +153,63 @@ export default function LandingPage() {
               description="Cryptographically signed proof-of-work. Students submit a token that proves they did the work themselves."
               delay={0.3}
             />
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4 text-foreground">
+              How <span className="text-primary">Aletheia</span> Works
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Three simple steps to transform how your university handles academic integrity.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { step: '1', title: 'Deploy the Workspace', description: 'Students complete assignments in the Aletheia editor. Every keystroke, paste, and AI interaction is recorded.' },
+              { step: '2', title: 'AI Guides, Not Solves', description: 'Our Socratic Firewall intercepts solution-seeking prompts and converts them into guided learning questions.' },
+              { step: '3', title: 'Verify with Proof', description: 'Faculty receive a cryptographic Audit Token and process forensics dashboard to verify authentic authorship.' },
+            ].map((item) => (
+              <div key={item.step} className="text-center space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg font-bold">{item.step}</div>
+                <h3 className="text-lg font-bold font-heading text-foreground">{item.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Security Section */}
+      <section id="security" className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold font-heading text-foreground">
+              Enterprise-Grade <span className="text-primary">Security</span>
+            </h2>
+            <p className="text-muted-foreground text-lg leading-relaxed">
+              All telemetry data is encrypted in transit and at rest. Audit tokens use HMAC-SHA256 cryptographic signatures
+              that are tamper-proof. Session data is stored in isolated PostgreSQL instances with row-level security.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-6 pt-8">
+              {[
+                { label: 'End-to-End Encryption', desc: 'TLS 1.3 for all data in transit' },
+                { label: 'Tamper-Proof Tokens', desc: 'HMAC-SHA256 signed audit proofs' },
+                { label: 'FERPA Compliant', desc: 'Student data isolation & privacy' },
+              ].map((item) => (
+                <div key={item.label} className="p-4 rounded-xl bg-card border border-border/50 space-y-1">
+                  <p className="font-semibold text-foreground text-sm">{item.label}</p>
+                  <p className="text-muted-foreground text-xs">{item.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

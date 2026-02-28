@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { register } from '@/lib/actions/auth';
 import { cn } from '@/lib/utils/cn';
 import { AtSign, KeyRound, User, Briefcase, GraduationCap, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function RegisterForm() {
     const [state, dispatch, isPending] = useActionState(register, undefined);
@@ -134,9 +135,9 @@ export default function RegisterForm() {
             </div>
             <div className="mt-4 text-center text-sm">
                 <span className="text-muted-foreground">Already have an account? </span>
-                <a href="/login" className="font-medium text-primary hover:text-primary/80">
+                <Link href="/login" className="font-medium text-primary hover:text-primary/80">
                     Log in
-                </a>
+                </Link>
             </div>
         </form>
     );
@@ -152,6 +153,7 @@ function RegisterButton() {
                 pending && "opacity-50 cursor-not-allowed"
             )}
             aria-disabled={pending}
+            disabled={pending}
         >
             Create Account <ArrowRight className="ml-auto h-5 w-5" />
         </button>

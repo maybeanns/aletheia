@@ -19,9 +19,10 @@ import { useState } from 'react';
 
 interface SidebarProps {
     userRole: string;
+    onClose?: () => void;
 }
 
-export function Sidebar({ userRole }: SidebarProps) {
+export function Sidebar({ userRole, onClose }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
 
@@ -84,7 +85,8 @@ export function Sidebar({ userRole }: SidebarProps) {
             <nav className="flex flex-col gap-1 px-2 mt-2 flex-1">
                 {links.map((link) => {
                     const LinkIcon = link.icon;
-                    const isActive = pathname === link.href;
+                    const isActive = pathname === link.href ||
+                        (link.href !== '/student' && link.href !== '/faculty' && link.href !== '/admin' && pathname.startsWith(link.href));
                     return (
                         <Link
                             key={link.name}

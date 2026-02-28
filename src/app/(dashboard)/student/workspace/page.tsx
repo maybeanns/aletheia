@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import CodeEditor, { SUPPORTED_LANGUAGES } from '@/components/editor/code-editor';
 import ChatInterface from '@/components/chat/chat-interface';
 import { Button } from '@/components/ui/button';
-import { Play, UploadCloud, Code2, FileText, AlertTriangle, ShieldCheck, Radio } from 'lucide-react';
+import { Play, UploadCloud, Code2, FileText, AlertTriangle, ShieldCheck, Radio, MessageSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { AuditTokenGenerator } from '@/lib/telemetry/audit-token';
 import { TelemetryCollector } from '@/lib/telemetry/collector';
@@ -22,6 +22,50 @@ const TextEditor = dynamic(() => import('@/components/editor/text-editor'), {
 
 const RECOVERY_SECRET = 'dev-secret-key-123';
 
+// ── Inline Toast ──────────────────────────────────────────────────────────────
+interface ToastData {
+    message: string;
+    type: 'success' | 'error' | 'info';
+}
+
+function InlineToast({ toast, onDismiss }: { toast: ToastData; onDismiss: () => void }) {
+    return (
+        <div className={cn(
+            'fixed bottom-4 right-4 z-50 max-w-sm flex items-start gap-3 rounded-lg border p-4 shadow-lg animate-in slide-in-from-right-5 fade-in-0 duration-300',
+            toast.type === 'success' && 'bg-card border-emerald-500/30',
+            toast.type === 'error' && 'bg-card border-destructive/30',
+            toast.type === 'info' && 'bg-card border-primary/30',
+        )}>
+            <p className="text-sm flex-1 text-foreground">{toast.message}</p>
+            <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground shrink-0">
+                <X className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+}
+
+// ── Confirmation Modal ────────────────────────────────────────────────────────
+function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+            <div className="relative bg-card border border-border rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4 animate-in zoom-in-95 fade-in-0 duration-200">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Submit Assignment?</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                    This will finalize your work and generate an Audit Token. You can&apos;t undo this action.
+                </p>
+                <div className="flex justify-end gap-3">
+                    <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={onConfirm}>
+                        <UploadCloud className="h-3.5 w-3.5 mr-1.5" />
+                        Confirm Submit
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function StudentWorkspacePage() {
     const [telemetryEvents, setTelemetryEvents] = useState<any[]>([]);
     const [code, setCode] = useState('// Write your Linked List implementation here...');
@@ -30,6 +74,10 @@ export default function StudentWorkspacePage() {
     const [assignmentType, setAssignmentType] = useState<'code' | 'text'>('code');
     const [language, setLanguage] = useState('javascript');
     const [driftFlagged, setDriftFlagged] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [toast, setToast] = useState<ToastData | null>(null);
+    const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
     const generatorRef = useRef(new AuditTokenGenerator(RECOVERY_SECRET));
     const sessionIdRef = useRef(`session-${Date.now()}`);
@@ -47,6 +95,11 @@ export default function StudentWorkspacePage() {
     });
 
     const telemetryRef = useRef<TelemetryCollector | null>(null);
+
+    const showToast = useCallback((message: string, type: ToastData['type'] = 'info') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 6000);
+    }, []);
 
     const handleTelemetry = useCallback((events: any[]) => {
         setTelemetryEvents((prev) => [...prev, ...events]);
@@ -70,6 +123,9 @@ export default function StudentWorkspacePage() {
     }, [syncFlightCode]);
 
     const handleSubmit = async () => {
+        setShowConfirm(false);
+        setIsSubmitting(true);
+
         const content = assignmentType === 'code' ? code : textContent;
 
         const driftReport = telemetryRef.current?.finaliseSession() ?? null;
@@ -132,22 +188,24 @@ export default function StudentWorkspacePage() {
 
             const result = await response.json();
             const verificationNote = result.verification === 'FLAGGED'
-                ? '\n🔍 Server verification: FLAGGED for manual review'
+                ? ' — Flagged for manual review'
                 : result.verification === 'VERIFIED'
-                    ? '\n✅ Server verification: VERIFIED'
+                    ? ' — Verified ✓'
                     : '';
             const driftNote = driftReport?.isFlagged
-                ? `\n⚠️  Typing-signature anomaly (drift: ${driftReport.driftScore.toFixed(2)})`
+                ? ` ⚠ Typing-signature anomaly (drift: ${driftReport.driftScore.toFixed(2)})`
                 : '';
-            alert(
-                `Submission accepted! ID: ${result.submissionId}` +
-                `\nAudit Token: ${token.substring(0, 20)}...` +
-                verificationNote + driftNote
+
+            showToast(
+                `Submission accepted! ID: ${result.submissionId}${verificationNote}${driftNote}`,
+                result.verification === 'FLAGGED' ? 'info' : 'success'
             );
             setTelemetryEvents([]);
         } catch (error) {
             console.error('Submission error:', error);
-            alert('Failed to submit assignment. Please try again.');
+            showToast('Failed to submit assignment. Please try again.', 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -158,7 +216,7 @@ export default function StudentWorkspacePage() {
     return (
         <div className="flex flex-col h-screen">
             {/* ── Workspace Header ─────────────────────────────────────────── */}
-            <header className="flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 py-2 shrink-0 z-10">
+            <header className="flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 py-2 shrink-0 z-10 flex-wrap gap-2">
                 {/* Left: Assignment info + status badges */}
                 <div className="flex items-center gap-3 min-w-0">
                     <h1 className="text-sm font-semibold text-foreground truncate">
@@ -198,7 +256,7 @@ export default function StudentWorkspacePage() {
                 </div>
 
                 {/* Right: Controls */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {/* Code / Text toggle */}
                     <div className="flex items-center rounded-md border border-border overflow-hidden">
                         <button
@@ -232,6 +290,7 @@ export default function StudentWorkspacePage() {
                         <select
                             value={language}
                             onChange={(e) => setLanguage(e.target.value)}
+                            aria-label="Programming language"
                             className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                         >
                             {SUPPORTED_LANGUAGES.map((lang) => (
@@ -246,15 +305,22 @@ export default function StudentWorkspacePage() {
                     <select
                         value={aiMode}
                         onChange={(e) => setAiMode(e.target.value as 'BRAINSTORMING' | 'EXAM')}
+                        aria-label="AI assistance mode"
                         className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                         <option value="BRAINSTORMING">Brainstorming</option>
                         <option value="EXAM">Exam</option>
                     </select>
 
-                    {/* Run — code mode only */}
+                    {/* Run — code mode only (disabled, not yet implemented) */}
                     {assignmentType === 'code' && (
-                        <Button variant="secondary" size="sm" className="gap-1.5 h-8 text-xs">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1.5 h-8 text-xs"
+                            disabled
+                            title="Code execution coming soon"
+                        >
                             <Play className="h-3.5 w-3.5" />
                             Run
                         </Button>
@@ -262,18 +328,37 @@ export default function StudentWorkspacePage() {
 
                     {/* Submit — always visible */}
                     <Button
-                        onClick={handleSubmit}
+                        onClick={() => setShowConfirm(true)}
                         size="sm"
                         className="gap-1.5 h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
+                        disabled={isSubmitting}
                     >
-                        <UploadCloud className="h-3.5 w-3.5" />
-                        Submit
+                        {isSubmitting ? (
+                            <>
+                                <span className="h-3.5 w-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                                Submitting...
+                            </>
+                        ) : (
+                            <>
+                                <UploadCloud className="h-3.5 w-3.5" />
+                                Submit
+                            </>
+                        )}
                     </Button>
+
+                    {/* Mobile chat toggle */}
+                    <button
+                        onClick={() => setMobileChatOpen(!mobileChatOpen)}
+                        className="lg:hidden p-1.5 rounded-md text-foreground hover:bg-accent transition-colors"
+                        aria-label="Toggle AI chat"
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                    </button>
                 </div>
             </header>
 
             {/* ── Main Workspace Split ──────────────────────────────────────── */}
-            <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-1 min-h-0 overflow-hidden relative">
                 {/* Editor Pane — fills available space */}
                 <div className="flex-1 min-w-0 overflow-hidden">
                     {assignmentType === 'code' ? (
@@ -293,8 +378,11 @@ export default function StudentWorkspacePage() {
                     )}
                 </div>
 
-                {/* AI Chat Pane — fixed width, hidden on small screens */}
-                <div className="w-[360px] shrink-0 hidden lg:block border-l border-border">
+                {/* AI Chat Pane — fixed width on desktop, slide-over on mobile */}
+                <div className={cn(
+                    'w-[360px] shrink-0 border-l border-border',
+                    'hidden lg:block',
+                )}>
                     <ChatInterface
                         aiMode={aiMode}
                         assignmentContext="Implementing a Linked List in Javascript/Typescript"
@@ -302,7 +390,41 @@ export default function StudentWorkspacePage() {
                         currentCode={assignmentType === 'code' ? code : textContent}
                     />
                 </div>
+
+                {/* Mobile chat overlay */}
+                {mobileChatOpen && (
+                    <div className="lg:hidden fixed inset-0 z-40">
+                        <div className="absolute inset-0 bg-black/50" onClick={() => setMobileChatOpen(false)} />
+                        <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-background shadow-xl animate-in slide-in-from-right duration-200">
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                                <span className="text-sm font-semibold">AI Chat</span>
+                                <button onClick={() => setMobileChatOpen(false)} className="p-1 rounded hover:bg-accent">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                            <div className="h-[calc(100%-41px)]">
+                                <ChatInterface
+                                    aiMode={aiMode}
+                                    assignmentContext="Implementing a Linked List in Javascript/Typescript"
+                                    codeConstraints={['No built-in Array methods', 'Max 100 lines']}
+                                    currentCode={assignmentType === 'code' ? code : textContent}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
+
+            {/* Confirmation Modal */}
+            {showConfirm && (
+                <ConfirmModal
+                    onConfirm={handleSubmit}
+                    onCancel={() => setShowConfirm(false)}
+                />
+            )}
+
+            {/* Toast */}
+            {toast && <InlineToast toast={toast} onDismiss={() => setToast(null)} />}
         </div>
     );
 }

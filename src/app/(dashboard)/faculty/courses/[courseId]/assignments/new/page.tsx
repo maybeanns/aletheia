@@ -44,24 +44,24 @@ export default function CreateAssignmentPage({ params }: { params: { courseId: s
             <div className="mb-8">
                 <Link
                     href="/faculty/courses"
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 mb-4"
+                    className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
                 >
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Back to Course
                 </Link>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Create New Assignment</h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">Configure parameters and AI strictness.</p>
+                        <h1 className="text-3xl font-bold text-foreground">Create New Assignment</h1>
+                        <p className="text-muted-foreground mt-1">Configure parameters and AI strictness.</p>
                     </div>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Basic Info */}
-                <div className="bg-white dark:bg-gray-900 p-6 rounded-lg border border-gray-200 dark:border-gray-800 space-y-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-blue-500" />
+                <div className="bg-card p-6 rounded-lg border border-border space-y-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
+                        <FileText className="h-5 w-5 text-primary" />
                         Assignment Details
                     </h2>
 
@@ -100,9 +100,9 @@ export default function CreateAssignmentPage({ params }: { params: { courseId: s
                 </div>
 
                 {/* AI Configuration */}
-                <div className="bg-white dark:bg-gray-900 p-6 rounded-lg border border-gray-200 dark:border-gray-800 space-y-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-purple-500" />
+                <div className="bg-card p-6 rounded-lg border border-border space-y-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
+                        <Sparkles className="h-5 w-5 text-primary" />
                         AI & Pedagogical Settings
                     </h2>
 
@@ -117,7 +117,7 @@ export default function CreateAssignmentPage({ params }: { params: { courseId: s
                                 <option value="BRAINSTORMING">Brainstorming (Socratic Guide)</option>
                                 <option value="EXAM">Exam Mode (Strict No-Code Policy)</option>
                             </select>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                                 {formData.aiMode === 'BRAINSTORMING'
                                     ? "AI will guide students through the problem without giving direct answers."
                                     : "AI will strictly refuse to write code and only clarify questions."}
@@ -131,7 +131,7 @@ export default function CreateAssignmentPage({ params }: { params: { courseId: s
                                 value={formData.codeConstraints}
                                 onChange={e => setFormData({ ...formData, codeConstraints: e.target.value })}
                             />
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                                 Specific rules the AI should enforce when reviewing student code.
                             </p>
                         </div>
@@ -140,7 +140,7 @@ export default function CreateAssignmentPage({ params }: { params: { courseId: s
 
                 <div className="flex justify-end gap-3">
                     <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
-                    <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                    <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                         {isLoading ? 'Saving...' : (
                             <>
                                 <Save className="h-4 w-4" />
